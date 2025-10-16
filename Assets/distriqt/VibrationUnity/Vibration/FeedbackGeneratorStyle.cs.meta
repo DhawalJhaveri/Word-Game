@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c1392150031f84cd1b9bc396bc7e5952
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 190518
+  packageName: Vibration
+  packageVersion: 5.4.2
+  assetPath: Assets/distriqt/VibrationUnity/Vibration/FeedbackGeneratorStyle.cs
+  uploadId: 743419

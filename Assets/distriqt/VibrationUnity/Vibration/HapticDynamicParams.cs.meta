@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: edfd3d7604db6408db206daa246de3da
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 190518
+  packageName: Vibration
+  packageVersion: 5.4.2
+  assetPath: Assets/distriqt/VibrationUnity/Vibration/HapticDynamicParams.cs
+  uploadId: 743419

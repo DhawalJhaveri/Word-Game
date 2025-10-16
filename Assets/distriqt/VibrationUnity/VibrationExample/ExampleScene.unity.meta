@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e2649903628464f71803d150a59df304
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 190518
+  packageName: Vibration
+  packageVersion: 5.4.2
+  assetPath: Assets/distriqt/VibrationUnity/VibrationExample/ExampleScene.unity
+  uploadId: 743419

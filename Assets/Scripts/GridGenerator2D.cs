@@ -1,309 +1,359 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
-
 
 public class GridGenerator2D : MonoBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private GameObject cellPrefab;        // Prefab for each cell (UI Image)
-    [SerializeField] private GameObject inputCellsPrefab;
-    [SerializeField] private TextMeshProUGUI currentWordDisplay;  // Display current word from JSON
+    [SerializeField] private GameObject cellPrefab;        // Character cells
+    [SerializeField] private GameObject inputCellsPrefab;  // Input cells
+    [SerializeField] private TextMeshProUGUI currentWordDisplay;
 
     [Header("Cell Settings")]
-    private Vector2 cellSize = new Vector2(100, 100);
-    private Vector2 spacing = new Vector2(10, 10);
+    [SerializeField] private Vector2 cellSize = new Vector2(100, 100);
+    [SerializeField] private Vector2 spacing = new Vector2(10, 10);
 
     [Header("Word Settings")]
     [SerializeField] private string oxfordWordsPath = "Assets/grid words/oxford_words.json";
     [SerializeField] private int currentWordIndex = 0;
 
-    private GameObject[,] gridArray;
-    private RectTransform panelRect;
-    private char[] inputCharacters;      // Array to store individual characters
-    private int[] characterPositions;    // Array to store position numbers (1-9) for each character
-    private int[] characterColumnLengths; // Array to store column length (4-8) for each character
-    
-    // Oxford words data
-    private List<string> oxfordWords = new List<string>();
+    [Header("Input Cell Colors")]
+    [SerializeField] private Color colorEmpty = Color.white;
+    [SerializeField] private Color colorFilled = new Color(0.8f, 0.8f, 0.8f);
+    [SerializeField] private Color colorActive = new Color(1f, 0.95f, 0.6f);
+
+    // Data
+    private List<string> oxfordWords = new();
     private bool wordsLoaded = false;
 
-    void Awake()
+    // Grid input management
+    public List<List<InputCell>> inputRows = new();
+    private int activeRowIndex = 0;
+    private int activeCellIndex = 0;
+
+    private List<string> completedWords = new(); // Store completed words
+
+    private void Awake()
     {
-        panelRect = GetComponent<RectTransform>();
         LoadOxfordWords();
+
+        // Subscribe to keyboard events
+        Keyboard.OnKeyPressedEvent += HandleKeyboardInput;
+        Keyboard.OnBackspaceEvent += HandleBackspaceInput;
     }
 
-    void Start()
+    private void OnDestroy()
     {
-        //yield return new WaitForSeconds(0.25f);
+        Keyboard.OnKeyPressedEvent -= HandleKeyboardInput;
+        Keyboard.OnBackspaceEvent -= HandleBackspaceInput;
+    }
 
+    private void Start()
+    {
         GenerateProceduralGrid();
     }
+
+    #region JSON Loading
+    [Serializable]
+    private class OxfordWordsData { public string[] words; }
 
     private void LoadOxfordWords()
     {
         try
         {
             string jsonPath = Path.Combine(Application.dataPath, oxfordWordsPath.Replace("Assets/", ""));
-            
-            if (File.Exists(jsonPath))
+            if (!File.Exists(jsonPath))
             {
-                string jsonContent = File.ReadAllText(jsonPath);
-                OxfordWordsData wordData = JsonUtility.FromJson<OxfordWordsData>(jsonContent);
-                
-                if (wordData != null && wordData.words != null)
-                {
-                    oxfordWords = new List<string>(wordData.words);
-                    wordsLoaded = true;
-                    
-                    Debug.Log($"Loaded {oxfordWords.Count} words from Oxford dictionary");
-
-                    Debug.Log("Word List = " + JsonUtility.ToJson(oxfordWords));
-                                        
-                    Debug.Log($"First few words: {string.Join(", ", oxfordWords.GetRange(0, Mathf.Min(10, oxfordWords.Count)))}");
-                }
-                else
-                {
-                    Debug.LogError("Failed to parse Oxford words JSON data");
-                }
+                Debug.LogError($"Oxford words file not found: {jsonPath}");
+                return;
             }
-            else
+
+            string jsonContent = File.ReadAllText(jsonPath);
+            OxfordWordsData wordData = JsonUtility.FromJson<OxfordWordsData>(jsonContent);
+            if (wordData?.words != null)
             {
-                Debug.LogError($"Oxford words file not found at: {jsonPath}");
+                oxfordWords = new List<string>(wordData.words);
+                wordsLoaded = true;
+                Debug.Log($"Loaded {oxfordWords.Count} words.");
             }
         }
-        catch (System.Exception e)
+        catch (Exception e)
         {
             Debug.LogError($"Error loading Oxford words: {e.Message}");
         }
     }
+    #endregion
 
+    #region Grid Generation
     public void GenerateProceduralGrid()
     {
-        // Get the current word from Oxford dictionary
         if (!wordsLoaded || oxfordWords.Count == 0)
         {
             Debug.LogWarning("Oxford words not loaded! Cannot generate grid.");
             return;
         }
 
-        // Get word in ascending order and automatically move to next word
         string word = oxfordWords[currentWordIndex];
-        
         Debug.Log($"Generating grid for word {currentWordIndex + 1}/{oxfordWords.Count}: '{word}'");
-        
-        // Automatically move to next word for next call
+
         currentWordIndex = (currentWordIndex + 1) % oxfordWords.Count;
 
-        // Break down the input word into individual characters
-        inputCharacters = word.ToCharArray();
-        
-        // Initialize the arrays
-        characterPositions = new int[inputCharacters.Length];
-        characterColumnLengths = new int[inputCharacters.Length];
-        
-        // Assign random numbers (4-8) for both positions and column lengths
-        Debug.Log($"Processing word: '{word}' with {inputCharacters.Length} characters:");
-        
-        // Ensure unique column lengths for each character
-        List<int> availableLengths = new List<int>();
-        for (int length = 4; length <= 8; length++)
-        {
-            availableLengths.Add(length);
-        }
-        
-        for (int i = 0; i < inputCharacters.Length; i++)
-        {
-            characterPositions[i] = Random.Range(1, 9);     // Random position between 1-9 (inclusive)
-            
-            // Assign unique column length
-            if (availableLengths.Count > 0)
-            {
-                int randomIndex = Random.Range(0, availableLengths.Count);
-                characterColumnLengths[i] = availableLengths[randomIndex];
-                availableLengths.RemoveAt(randomIndex); // Remove to ensure uniqueness
-            }
-            else
-            {
-                // Fallback if we run out of unique lengths (shouldn't happen with 5 characters max)
-                characterColumnLengths[i] = Random.Range(4, 9);
-            }
-            
-            Debug.Log($"Character '{inputCharacters[i]}' at index {i}: Position = {characterPositions[i]}, Column Length = {characterColumnLengths[i]}");
-        }
+        char[] inputCharacters = word.ToCharArray();
 
-        // Clear any existing cells
+        // Clear previous grid
         foreach (Transform child in transform)
             Destroy(child.gameObject);
 
-        // Create crossword puzzle style grid with irregular shapes
-        CreateCrosswordStyleGrid();
+        inputRows.Clear();
+        completedWords.Clear();
+        activeRowIndex = 0;
+        activeCellIndex = 0;
 
-        Debug.Log($"Generated crossword-style grid for word: '{word}'");
-        Debug.Log($"Character positions: [{string.Join(", ", characterPositions)}]");
-        Debug.Log($"Column lengths: [{string.Join(", ", characterColumnLengths)}]");
-        
-        // Update UI display
+        CreateCrosswordStyleGrid(inputCharacters);
         UpdateWordDisplay();
     }
 
+    private void CreateCrosswordStyleGrid(char[] inputCharacters)
+    {
+        int totalRows = inputCharacters.Length;
+
+        int[] characterColumnLengths = new int[totalRows];
+        List<int> availableLengths = new();
+        for (int length = 4; length <= 8; length++) availableLengths.Add(length);
+
+        // Assign random column lengths
+        for (int i = 0; i < totalRows; i++)
+        {
+            if (availableLengths.Count > 0)
+            {
+                int index = UnityEngine.Random.Range(0, availableLengths.Count);
+                characterColumnLengths[i] = availableLengths[index];
+                availableLengths.RemoveAt(index);
+            }
+            else
+            {
+                characterColumnLengths[i] = UnityEngine.Random.Range(4, 9);
+            }
+
+            Debug.Log($"[Row {i}] Column Length = {characterColumnLengths[i]}");
+        }
+
+        int maxColumns = Mathf.Max(characterColumnLengths);
+        float startX = -((maxColumns * (cellSize.x + spacing.x)) / 2f) + cellSize.x / 2f;
+        float startY = (totalRows * (cellSize.y + spacing.y)) / 2f - cellSize.y / 2f;
+
+        for (int rowIndex = 0; rowIndex < totalRows; rowIndex++)
+        {
+            List<InputCell> rowCells = new();
+            int colLength = characterColumnLengths[rowIndex];
+            int middleColumn = maxColumns / 2;
+            int startColumn = middleColumn - (colLength / 2);
+            int charColumn = startColumn + (colLength / 2);
+
+            Debug.Log($"-- Row {rowIndex}: startCol={startColumn}, charCol={charColumn}, colLength={colLength}");
+
+            for (int col = startColumn; col < startColumn + colLength; col++)
+            {
+                GameObject prefabToUse = (col == charColumn) ? cellPrefab : inputCellsPrefab;
+                GameObject cellGO = Instantiate(prefabToUse, transform);
+                RectTransform rect = cellGO.GetComponent<RectTransform>();
+                rect.sizeDelta = cellSize;
+                rect.anchoredPosition = new Vector2(startX + col * (cellSize.x + spacing.x), startY - rowIndex * (cellSize.y + spacing.y));
+
+                if (prefabToUse == cellPrefab)
+                {
+                    TextMeshProUGUI textComp = cellGO.GetComponentInChildren<TextMeshProUGUI>();
+                    if (textComp != null)
+                    {
+                        textComp.text = inputCharacters[rowIndex].ToString().ToUpper();
+                        textComp.color = Color.black;
+                        textComp.fontSize = 24;
+                    }
+                }
+                else
+                {
+                    InputCell inputCell = cellGO.GetComponent<InputCell>();
+                    if (inputCell != null)
+                    {
+                        inputCell.RowIndex = rowIndex;
+                        inputCell.ColumnIndex = col;
+                        inputCell.ParentGrid = this;
+                        rowCells.Add(inputCell);
+                        inputCell.SetColor(colorEmpty);
+                    }
+                }
+            }
+
+            if (rowCells.Count > 0)
+                inputRows.Add(rowCells);
+        }
+
+        if (inputRows.Count > 0 && inputRows[0].Count > 0)
+            SetActiveCell(0, 0);
+    }
+    #endregion
+
+    #region Keyboard Handling
+    private void HandleKeyboardInput(char inputChar)
+    {
+        if (inputRows.Count == 0) return;
+
+        var currentRow = inputRows[activeRowIndex];
+        var currentCell = currentRow[activeCellIndex];
+
+        currentCell.SetCharacter(inputChar);
+    }
+
+    private void HandleBackspaceInput()
+    {
+        if (inputRows.Count == 0) return;
+
+        var currentRow = inputRows[activeRowIndex];
+        var currentCell = currentRow[activeCellIndex];
+
+        if (!currentCell.IsFilled && activeCellIndex > 0)
+        {
+            activeCellIndex--;
+            SetActiveCell(activeRowIndex, activeCellIndex);
+            inputRows[activeRowIndex][activeCellIndex].ClearCharacter();
+        }
+        else
+        {
+            currentCell.ClearCharacter();
+            SetActiveCell(activeRowIndex, activeCellIndex);
+        }
+
+        if (activeCellIndex == 0 && activeRowIndex > 0 && !currentRow[0].IsFilled)
+        {
+            activeRowIndex--;
+            activeCellIndex = inputRows[activeRowIndex].Count - 1;
+            SetActiveCell(activeRowIndex, activeCellIndex);
+        }
+    }
+    #endregion
+
+    #region Cell Activation & Row Completion
+    public void OnCellFilled(InputCell cell)
+    {
+        // Get the current row
+        var row = inputRows[cell.RowIndex];
+
+        // If the row is not yet complete, move to the next input cell
+        if (activeCellIndex + 1 < row.Count)
+        {
+            activeCellIndex++;
+            SetActiveCell(cell.RowIndex, activeCellIndex);
+        }
+        else
+        {
+            // Row is complete, collect letters
+            string rowWord = "";
+
+            // Include letters from inputCellsPrefab
+            foreach (var c in row)
+            {
+                rowWord += c.GetCharacter();
+            }
+
+            // Include the fixed character from the character cell
+            rowWord += GetRowCharacter(cell.RowIndex);
+
+            completedWords.Add(rowWord);
+            Debug.Log($"Row {cell.RowIndex + 1} completed: {rowWord}");
+
+            // Move to next row if any
+            if (cell.RowIndex + 1 < inputRows.Count)
+            {
+                activeRowIndex++;
+                activeCellIndex = 0;
+                SetActiveCell(activeRowIndex, activeCellIndex);
+            }
+            else
+            {
+                // All rows finished
+                Debug.Log("All rows completed!");
+                DisplayCollectedWords();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the letter from the fixed character cell for a given row
+    /// </summary>
+    private string GetRowCharacter(int rowIndex)
+    {
+        foreach (Transform child in transform)
+        {
+            InputCell inputCell = child.GetComponent<InputCell>();
+            if (inputCell == null)
+            {
+                // This is the fixed cellPrefab
+                TextMeshProUGUI textComp = child.GetComponentInChildren<TextMeshProUGUI>();
+                if (textComp != null)
+                {
+                    // Check approximate Y position to match the row
+                    float yPos = child.transform.localPosition.y;
+                    float expectedY = (cellSize.y + spacing.y) * rowIndex * -1;
+                    if (Mathf.Abs(yPos - expectedY) < 0.1f)
+                        return textComp.text;
+                }
+            }
+        }
+        return "";
+    }
+
+    private char GetCharacterPrefab(int rowIndex)
+    {
+        foreach (Transform child in transform)
+        {
+            TextMeshProUGUI textComp = child.GetComponentInChildren<TextMeshProUGUI>();
+            if (textComp != null && !child.TryGetComponent(out InputCell _))
+            {
+                float yPos = -rowIndex * (cellSize.y + spacing.y);
+                if (Mathf.Abs(child.localPosition.y - yPos) < 0.1f)
+                    return textComp.text[0];
+            }
+        }
+        return '?';
+    }
+
+    private void SetActiveCell(int rowIndex, int colIndex)
+    {
+        for (int r = 0; r < inputRows.Count; r++)
+            foreach (var c in inputRows[r])
+                c.SetColor(colorFilled);
+
+        var activeCell = inputRows[rowIndex][colIndex];
+        activeCell.SetColor(colorActive);
+
+        activeRowIndex = rowIndex;
+        activeCellIndex = colIndex;
+    }
+    #endregion
+
+    #region Display Helpers
     private void UpdateWordDisplay()
     {
         if (currentWordDisplay != null && wordsLoaded && oxfordWords.Count > 0)
         {
-            // Show the next word that will be used (since index advances after each call)
-            int nextIndex = currentWordIndex; // This is now the next word to be used
-            string nextWord = oxfordWords[nextIndex];
-            currentWordDisplay.text = $"Next Word {nextIndex + 1}/{oxfordWords.Count}: {nextWord.ToUpper()}";
+            int nextIndex = currentWordIndex;
+            currentWordDisplay.text = $"Next Word {nextIndex + 1}/{oxfordWords.Count}: {oxfordWords[nextIndex].ToUpper()}";
         }
     }
 
-    public string GetCurrentWord()
+    private void DisplayCollectedWords()
     {
-        if (wordsLoaded && oxfordWords.Count > 0)
-        {
-            // Get the word that was just used (previous index)
-            int previousIndex = (currentWordIndex - 1 + oxfordWords.Count) % oxfordWords.Count;
-            return oxfordWords[previousIndex];
-        }
-        return "";
-    }
+        string allWords = string.Join(", ", completedWords);
+        Debug.Log("Collected words: " + allWords);
 
-    public string GetNextWord()
-    {
-        if (wordsLoaded && oxfordWords.Count > 0)
-        {
-            return oxfordWords[currentWordIndex];
-        }
-        return "";
+        if (currentWordDisplay != null)
+            currentWordDisplay.text = "Words: " + allWords;
     }
+    #endregion
 
-    [ContextMenu("Next Word")]
-    public void NextWord()
-    {
-        if (wordsLoaded && oxfordWords.Count > 0)
-        {
-            currentWordIndex = (currentWordIndex + 1) % oxfordWords.Count;
-            Debug.Log($"Moved to word {currentWordIndex + 1}: '{oxfordWords[currentWordIndex]}'");
-            UpdateWordDisplay();
-        }
-    }
-
-    [ContextMenu("Previous Word")]
-    public void PreviousWord()
-    {
-        if (wordsLoaded && oxfordWords.Count > 0)
-        {
-            currentWordIndex = (currentWordIndex - 1 + oxfordWords.Count) % oxfordWords.Count;
-            Debug.Log($"Moved to word {currentWordIndex + 1}: '{oxfordWords[currentWordIndex]}'");
-            UpdateWordDisplay();
-        }
-    }
-
-    [ContextMenu("Random Word")]
-    public void RandomWord()
-    {
-        if (wordsLoaded && oxfordWords.Count > 0)
-        {
-            currentWordIndex = Random.Range(0, oxfordWords.Count);
-            Debug.Log($"Random word {currentWordIndex + 1}: '{oxfordWords[currentWordIndex]}'");
-            UpdateWordDisplay();
-        }
-    }
-
-    private void CreateCrosswordStyleGrid()
-    {
-        // Calculate grid bounds - find the maximum column length and total rows
-        int maxColumns = Mathf.Max(characterColumnLengths);
-        int totalRows = inputCharacters.Length;
-        
-        // Create a 2D array to track which cells should be created
-        bool[,] shouldCreateCell = new bool[maxColumns, totalRows];
-        
-        // Fill the grid based on character positions and column lengths
-        for (int charIndex = 0; charIndex < inputCharacters.Length; charIndex++)
-        {
-            int columnLength = characterColumnLengths[charIndex];
-            int characterPosition = characterPositions[charIndex]; // Position within the row (1-9)
-            
-            // Calculate starting position for this character's row
-            // Center the row around the middle of the grid
-            int middleColumn = maxColumns / 2;
-            int startColumn = middleColumn - (columnLength / 2);
-            
-            // Ensure we don't go out of bounds
-            startColumn = Mathf.Clamp(startColumn, 0, maxColumns - columnLength);
-            
-            // Mark cells that should be created for this character's row
-            for (int col = startColumn; col < startColumn + columnLength && col < maxColumns; col++)
-            {
-                shouldCreateCell[col, charIndex] = true;
-            }
-        }
-        
-        // Calculate grid size for centering
-        float estimatedWidth = maxColumns * (cellSize.x + spacing.x);
-        float estimatedHeight = totalRows * (cellSize.y + spacing.y);
-        
-        float startX = -estimatedWidth / 2f + cellSize.x / 2f;
-        float startY = estimatedHeight / 2f - cellSize.y / 2f;
-        
-        // Create cells only where needed (crossword style)
-        int cellCount = 0;
-        for (int x = 0; x < maxColumns; x++)
-        {
-            for (int y = 0; y < totalRows; y++)
-            {
-                if (shouldCreateCell[x, y])
-                {
-                    // Check if this is a character cell or empty cell
-                    int charIndex = y;
-                    int columnLength = characterColumnLengths[charIndex];
-                    int middleColumn = maxColumns / 2;
-                    int startColumn = middleColumn - (columnLength / 2);
-                    int characterColumn = startColumn + (columnLength / 2); // Center of the row
-                    
-                    // Use different prefab for character cells vs empty cells
-                    GameObject prefabToUse = (x == characterColumn) ? cellPrefab : inputCellsPrefab;
-                    GameObject cell = Instantiate(prefabToUse, transform);
-                    cell.name = $"CrosswordCell_{x}_{y}_{((x == characterColumn) ? "CHAR" : "EMPTY")}";
-                    
-                    RectTransform rect = cell.GetComponent<RectTransform>();
-                    rect.sizeDelta = cellSize;
-                    
-                    // Position cell
-                    float posX = startX + x * (cellSize.x + spacing.x);
-                    float posY = startY - y * (cellSize.y + spacing.y);
-                    rect.anchoredPosition = new Vector2(posX, posY);
-                    
-                    // Add character text to character cells only
-                    if (x == characterColumn)
-                    {
-                        TextMeshProUGUI textComponent = cell.GetComponentInChildren<TextMeshProUGUI>();
-                        if (textComponent != null)
-                        {
-                            textComponent.text = inputCharacters[charIndex].ToString().ToUpper();
-                            textComponent.color = Color.black;
-                            textComponent.fontSize = 24;
-                        }
-                    }
-                    
-                    cellCount++;
-                }
-            }
-        }
-        
-        Debug.Log($"Created {cellCount} crossword-style cells across {maxColumns}x{totalRows} potential grid");
-        Debug.Log($"Word layout: Vertical word with each character centered in its row, surrounded by horizontal extensions");
-    }
-
-    [System.Serializable]
-    private class OxfordWordsData
-    {
-        public string[] words;
-    }
+    public Color GetColorActive() => colorActive;
+    public Color GetColorFilled() => colorFilled;
+    public Color GetColorEmpty() => colorEmpty;
 }

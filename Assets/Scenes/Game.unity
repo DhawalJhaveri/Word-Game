@@ -3996,8 +3996,13 @@ MonoBehaviour:
   cellPrefab: {fileID: 7615913291756597452, guid: 377060edd7f54024480529fbbfe9a560, type: 3}
   inputCellsPrefab: {fileID: 5479756573819366711, guid: 463ca678329649f47bf3670f7214ee2c, type: 3}
   currentWordDisplay: {fileID: 1103751519}
+  cellSize: {x: 100, y: 100}
+  spacing: {x: 10, y: 10}
   oxfordWordsPath: Assets/grid words/oxford_words.json
   currentWordIndex: 0
+  colorEmpty: {r: 1, g: 1, b: 1, a: 1}
+  colorFilled: {r: 0.8, g: 0.8, b: 0.8, a: 1}
+  colorActive: {r: 1, g: 0.95, b: 0.6, a: 1}
 --- !u!1 &1422568460
 GameObject:
   m_ObjectHideFlags: 0
@@ -4348,7 +4353,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -205.5}
+  m_AnchoredPosition: {x: 0, y: 89}
   m_SizeDelta: {x: 500, y: 150}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1476133961
@@ -5580,6 +5585,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1794182731}
   - component: {fileID: 1794182732}
+  - component: {fileID: 1794182733}
   m_Layer: 5
   m_Name: keyboard
   m_TagString: Untagged
@@ -5618,13 +5624,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 88108664c3d7c8148b7ec6a791d6ebd0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  InputField_CurrentWord: {fileID: 0}
   keyPrefab: {fileID: 7802258492432795993, guid: dc7a2366cc097894b9df6e157e867433, type: 3}
-  keyPrefab_BackSpace: {fileID: 7802258492432795993, guid: 0f02aecfffcb9434082a1cbaa30c2057, type: 3}
-  keyPrefab_Submit: {fileID: 2042303780822725716, guid: fc1c71f0a7f84fe4db33c7bafb84a53c, type: 3}
+  backspacePrefab: {fileID: 7802258492432795993, guid: 0f02aecfffcb9434082a1cbaa30c2057, type: 3}
+  submitPrefab: {fileID: 2042303780822725716, guid: fc1c71f0a7f84fe4db33c7bafb84a53c, type: 3}
   rowPrefab: {fileID: 8226983511524745916, guid: f5a7797367244914b890a74d29721b45, type: 3}
-  BackSpaceSprite: {fileID: 0}
-  Spacing: 10
+  backspaceSprite: {fileID: 21300000, guid: 541c3e92a539ea745aad9b7ba0646125, type: 3}
+  spacing: 10
+--- !u!114 &1794182733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1794182730}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59f8146938fff824cb5fd77236b75775, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Padding:
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
+  m_ChildAlignment: 1
+  m_Spacing: 20
+  m_ChildForceExpandWidth: 1
+  m_ChildForceExpandHeight: 0
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 0
+  m_ChildScaleWidth: 0
+  m_ChildScaleHeight: 0
+  m_ReverseArrangement: 0
 --- !u!1 &1802601627
 GameObject:
   m_ObjectHideFlags: 0

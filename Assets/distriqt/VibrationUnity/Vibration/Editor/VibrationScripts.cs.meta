@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c7c5f938537f84cb5a8998b6595c7d47
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 190518
+  packageName: Vibration
+  packageVersion: 5.4.2
+  assetPath: Assets/distriqt/VibrationUnity/Vibration/Editor/VibrationScripts.cs
+  uploadId: 743419
