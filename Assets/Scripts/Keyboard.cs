@@ -68,6 +68,7 @@ public class Keyboard : MonoBehaviour
     #region Input Handlers
     private void HandleKeyPress(char c)
     {
+        Debug.Log($"Virtual key pressed: {c}");
         // Add char to currentWord
         currentWord += c;
 

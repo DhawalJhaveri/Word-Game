@@ -3938,10 +3938,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 2030000081}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 0.31256253}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 300.5}
-  m_SizeDelta: {x: 0, y: -601}
+  m_AnchoredPosition: {x: 0, y: -0.5}
+  m_SizeDelta: {x: 0, y: 1}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1418409866
 MonoBehaviour:
@@ -5629,7 +5629,6 @@ MonoBehaviour:
   submitPrefab: {fileID: 2042303780822725716, guid: fc1c71f0a7f84fe4db33c7bafb84a53c, type: 3}
   rowPrefab: {fileID: 8226983511524745916, guid: f5a7797367244914b890a74d29721b45, type: 3}
   backspaceSprite: {fileID: 21300000, guid: 541c3e92a539ea745aad9b7ba0646125, type: 3}
-  spacing: 10
 --- !u!114 &1794182733
 MonoBehaviour:
   m_ObjectHideFlags: 0

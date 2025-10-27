@@ -12,12 +12,28 @@ public class InputCell : MonoBehaviour
     private Image _background;
     private bool _isActive = false;
 
-    public bool IsFilled => !string.IsNullOrEmpty(_text.text);
+    public bool IsFilled => !string.IsNullOrEmpty(_text?.text);
 
     private void Awake()
     {
+        _background = GetComponent<Image>();
+        _text = GetComponentInChildren<TextMeshProUGUI>(true); // true = include inactive children
+        if (_text == null)
+            Debug.LogError($"[InputCell] No TextMeshProUGUI found in {gameObject.name}");
+        UpdateVisual();
+    }
+
+
+    // Manual initialization instead of Awake or Start
+    public void Initialize(GridGenerator2D grid, int row, int column)
+    {
+        ParentGrid = grid;
+        RowIndex = row;
+        ColumnIndex = column;
+
         _text = GetComponentInChildren<TextMeshProUGUI>();
         _background = GetComponent<Image>();
+
         UpdateVisual();
     }
 
@@ -27,36 +43,68 @@ public class InputCell : MonoBehaviour
         UpdateVisual();
     }
 
-    /// <summary>
-    /// Sets a character into this cell.
-    /// Only allowed if cell is active AND empty (1 letter max).
-    /// Automatically notifies the parent grid and moves focus to next cell.
-    /// </summary>
     public void SetCharacter(char c)
     {
-        if (!_isActive || IsFilled) return; // BLOCK multiple letters
+        if (_text.text == c.ToString().ToUpper())
+        {
+            Debug.LogWarning($"[InputCell] Ignoring duplicate SetCharacter for '{c}' at Row {RowIndex}, Col {ColumnIndex}");
+            return;
+        }
 
+        Debug.Log($"[InputCell] SetCharacter called on Row {RowIndex}, Col {ColumnIndex} | isActive={_isActive} | textRefNull={_text == null}");
+
+        Debug.Log($"[InputCell] {gameObject.name} (ActiveInHierarchy={gameObject.activeInHierarchy}) | Transform path: {transform.GetHierarchyPath()} | Setting text '{c}'");
+
+        // If text component missing, show more info and return
+        if (_text == null)
+        {
+            Debug.LogError($"[InputCell] TEXT IS NULL on Row {RowIndex}, Col {ColumnIndex}. GameObject: {gameObject.name}. Components: {string.Join(", ", System.Array.ConvertAll(gameObject.GetComponents<Component>(), x => x.GetType().Name))}");
+            return;
+        }
+
+        // Check active state
+        if (!_isActive)
+        {
+            Debug.LogWarning($"[InputCell] Cell not active, refusing input. Row {RowIndex}, Col {ColumnIndex}");
+            return;
+        }
+
+        // If already filled
+        if (!string.IsNullOrEmpty(_text.text))
+        {
+            Debug.LogWarning($"[InputCell] Cell already has text '{_text.text}'. Row {RowIndex}, Col {ColumnIndex}");
+            return;
+        }
+
+        // Set text
         _text.text = c.ToString().ToUpper();
-        UpdateVisual();
+        Debug.Log($"[InputCell] Text set to '{_text.text}' on Row {RowIndex}, Col {ColumnIndex}");
 
-        // Notify parent grid that this cell has been filled
-        ParentGrid.OnCellFilled(this); // Grid will move to next cell automatically
+        // Update visuals and notify grid
+        UpdateVisual();
+        if (ParentGrid == null)
+            Debug.LogError($"[InputCell] ParentGrid is NULL on Row {RowIndex}, Col {ColumnIndex}");
+        else
+            ParentGrid.OnCellFilled(this);
+
+        Debug.Log($"[InputCell] Setting '{c}' on {_text.gameObject.name} (was '{_text.text}')");
+        _text.text = c.ToString().ToUpper();
     }
 
-    /// <summary>
-    /// Clears the character and updates visuals.
-    /// </summary>
     public void ClearCharacter()
     {
+        if (_text == null)
+            return;
+
         _text.text = "";
         UpdateVisual();
     }
 
-    /// <summary>
-    /// Updates the cell's background color based on state.
-    /// </summary>
     public void UpdateVisual()
     {
+        if (_background == null || ParentGrid == null)
+            return;
+
         if (_isActive)
             _background.color = ParentGrid.GetColorActive();
         else if (IsFilled)
@@ -65,20 +113,29 @@ public class InputCell : MonoBehaviour
             _background.color = ParentGrid.GetColorEmpty();
     }
 
-    /// <summary>
-    /// Forces the cell's background to a specific color.
-    /// </summary>
     public void SetColor(Color color)
     {
         if (_background != null)
             _background.color = color;
     }
 
-    /// <summary>
-    /// Returns the current character in the cell.
-    /// </summary>
     public string GetCharacter()
     {
-        return _text.text;
+        return _text?.text ?? "";
+    }
+}
+
+
+public static class TransformExtensions
+{
+    public static string GetHierarchyPath(this Transform t)
+    {
+        string path = t.name;
+        while (t.parent != null)
+        {
+            t = t.parent;
+            path = t.name + "/" + path;
+        }
+        return path;
     }
 }
