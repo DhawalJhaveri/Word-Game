@@ -25,6 +25,8 @@ public class GridGenerator2D : MonoBehaviour
     [SerializeField] private Color colorFilled = new Color(0.8f, 0.8f, 0.8f);
     [SerializeField] private Color colorActive = new Color(1f, 0.95f, 0.6f);
 
+    [SerializeField] private GameObject hide_Keyboard;
+
     // Data
     private List<string> oxfordWords = new();
     private bool wordsLoaded = false;
@@ -37,6 +39,7 @@ public class GridGenerator2D : MonoBehaviour
     private List<int> fixedCharColumnIndices = new(); // Store fixed cell column index for each row
     private List<string> fixedCharLetters = new List<string>(); // fixed letter for each row
     private List<string> completedWords = new(); // Store completed words
+    private HashSet<int> completedRowIndices = new(); // <— NEW
 
     private void Awake()
     {
@@ -44,16 +47,25 @@ public class GridGenerator2D : MonoBehaviour
 
         Keyboard.OnKeyPressedEvent += HandleKeyboardInput;
         Keyboard.OnBackspaceEvent += HandleBackspaceInput;
+        Keyboard.OnSubmitEvent += HandleSubmitPressed; // add this
     }
 
     private void OnDestroy()
     {
         Keyboard.OnKeyPressedEvent -= HandleKeyboardInput;
         Keyboard.OnBackspaceEvent -= HandleBackspaceInput;
+        Keyboard.OnSubmitEvent -= HandleSubmitPressed; // remove this
+    }
+
+    private void HandleSubmitPressed()
+    {
+        Debug.Log("[Grid] Submit pressed -> loading next word");
+        GenerateProceduralGrid();
     }
 
     private void Start()
     {
+        hide_Keyboard.SetActive(false);
         GenerateProceduralGrid();
     }
 
@@ -260,7 +272,6 @@ public class GridGenerator2D : MonoBehaviour
             }
         }
     }
-
     #endregion
 
     #region Keyboard Handling
@@ -282,59 +293,43 @@ public class GridGenerator2D : MonoBehaviour
 
     private void HandleBackspaceInput()
     {
-        if (inputRows.Count == 0)
-        {
-            Debug.LogWarning("No input rows initialized for backspace!");
-            return;
-        }
-
-        if (activeRowIndex < 0 || activeRowIndex >= inputRows.Count)
-        {
-            Debug.LogWarning("Active row index invalid during backspace.");
-            return;
-        }
+        if (inputRows.Count == 0) return;
 
         var currentRow = inputRows[activeRowIndex];
-        if (currentRow == null || currentRow.Count == 0)
-        {
-            Debug.LogWarning($"Row {activeRowIndex} has no input cells during backspace.");
-            return;
-        }
-
-        if (activeCellIndex < 0)
-        {
-            Debug.LogWarning("Active cell index invalid during backspace.");
-            return;
-        }
-
         var currentCell = currentRow[activeCellIndex];
 
-        // Case 1: Current cell has a letter -> clear it
+        // Case 1: Current cell has a letter -> clear it directly
         if (currentCell.IsFilled)
         {
-            Debug.Log($"Clearing character at Row {activeRowIndex}, Col {activeCellIndex}");
             currentCell.ClearCharacter();
-            SetActiveCell(activeRowIndex, activeCellIndex);
-            return;
         }
-
-        // Case 2: Current cell empty -> move back one cell
-        if (activeCellIndex > 0)
+        // Case 2: Current cell is empty -> move back and clear previous one
+        else if (activeCellIndex > 0)
         {
             activeCellIndex--;
             SetActiveCell(activeRowIndex, activeCellIndex);
-            Debug.Log($"Moved focus back to Row {activeRowIndex}, Col {activeCellIndex}");
-            return;
+            currentRow[activeCellIndex].ClearCharacter();
         }
-
-        // Case 3: At start of row -> move up to previous row’s last cell
-        if (activeRowIndex > 0)
+        // Case 3: We're at the first cell but not in the first row -> move to previous row
+        else if (activeRowIndex > 0)
         {
             activeRowIndex--;
-            var previousRow = inputRows[activeRowIndex];
-            activeCellIndex = previousRow.Count - 1;
+            var prevRow = inputRows[activeRowIndex];
+            activeCellIndex = prevRow.Count - 1;
             SetActiveCell(activeRowIndex, activeCellIndex);
-            Debug.Log($"Moved up to Row {activeRowIndex}, Col {activeCellIndex}");
+            prevRow[activeCellIndex].ClearCharacter();
+        }
+
+        // If this row was previously marked completed, remove its word
+        if (completedRowIndices.Contains(activeRowIndex))
+        {
+            completedRowIndices.Remove(activeRowIndex);
+
+            // Safety check in case word list and rows mismatch
+            if (activeRowIndex < completedWords.Count)
+                completedWords[activeRowIndex] = "";
+
+            Debug.Log($"[Grid] Row {activeRowIndex + 1} edited -> old word removed");
         }
     }
     #endregion
@@ -342,44 +337,111 @@ public class GridGenerator2D : MonoBehaviour
     #region Cell Activation & Row Completion
     public void OnCellFilled(InputCell cell)
     {
-        if (inputRows == null || inputRows.Count == 0) return;
-
-        var row = inputRows[cell.RowIndex];
-
-        // still cells left -> move forward
-        if (activeCellIndex + 1 < row.Count)
+        if (cell == null || cell.RowIndex < 0 || cell.RowIndex >= inputRows.Count)
         {
-            activeCellIndex++;
-            SetActiveCell(cell.RowIndex, activeCellIndex);
+            Debug.LogWarning("[Grid] Invalid cell reference in OnCellFilled.");
             return;
         }
 
-        // row complete: build the word from the input cells (in order)
-        string rowWord = "";
-        foreach (var c in row)
-            rowWord += c.GetCharacter();
-
-        // use the stored fixed letter and index
-        string fixedLetter = (cell.RowIndex < fixedCharLetters.Count) ? fixedCharLetters[cell.RowIndex] : "";
-        int insertIndex = (cell.RowIndex < fixedCharColumnIndices.Count) ? fixedCharColumnIndices[cell.RowIndex] : rowWord.Length / 2;
-        insertIndex = Mathf.Clamp(insertIndex, 0, rowWord.Length);
-
-        string completedWord = rowWord.Insert(insertIndex, fixedLetter);
-        completedWords.Add(completedWord);
-
-        Debug.Log($"Row {cell.RowIndex + 1} completed: Word: {completedWord}");
-
-        // move to next row
-        if (cell.RowIndex + 1 < inputRows.Count)
+        var row = inputRows[cell.RowIndex];
+        if (row == null || row.Count == 0)
         {
-            activeRowIndex = cell.RowIndex + 1;
-            activeCellIndex = 0;
-            SetActiveCell(activeRowIndex, activeCellIndex);
+            Debug.LogWarning($"[Grid] Row {cell.RowIndex} is empty or null.");
+            return;
+        }
+
+        // Check if row is now fully filled
+        bool rowComplete = row.TrueForAll(c => c.IsFilled);
+
+        if (rowComplete)
+        {
+            // --- Build the completed word including the fixed letter at correct position ---
+            string newWord = "";
+            int fixedColIndex = fixedCharColumnIndices[cell.RowIndex];
+            string fixedLetter = fixedCharLetters[cell.RowIndex];
+
+            for (int i = 0; i <= row.Count; i++)
+            {
+                if (i == fixedColIndex)
+                    newWord += fixedLetter;
+
+                if (i < row.Count)
+                    newWord += row[i].GetCharacter();
+            }
+
+            // --- Ensure visuals update properly (disable highlight + filled color) ---
+            foreach (var c in row)
+            {
+                c.SetActive(false);
+                c.UpdateVisual();
+            }
+
+            // --- Check if this row word already existed (correction case) ---
+            if (completedRowIndices.Contains(cell.RowIndex))
+            {
+                string oldWord = completedWords[cell.RowIndex];
+                completedWords[cell.RowIndex] = newWord;
+                Debug.Log($"[Grid]  Corrected word in Row {cell.RowIndex + 1}: '{oldWord}' -> '{newWord}'");
+            }
+            else
+            {
+                completedRowIndices.Add(cell.RowIndex);
+
+                // Ensure completedWords list has proper capacity
+                while (completedWords.Count <= cell.RowIndex)
+                    completedWords.Add("");
+
+                completedWords[cell.RowIndex] = newWord;
+                Debug.Log($"[Grid] Row {cell.RowIndex + 1} completed: {newWord}");
+            }
+
+            // --- Move to next row or finish ---
+            if (cell.RowIndex + 1 < inputRows.Count)
+            {
+                activeRowIndex++;
+                activeCellIndex = 0;
+                SetActiveCell(activeRowIndex, activeCellIndex);
+            }
+            else
+            {
+                Debug.Log("[Grid] All rows completed. Displaying collected words...");
+                DisplayCollectedWords();
+
+                // Instead of dimming or disabling manually, show the hide_Keyboard UI
+                if (hide_Keyboard != null)
+                {
+                    hide_Keyboard.SetActive(true);
+                    Debug.Log("[Grid] hide_Keyboard activated — keyboard interaction stopped.");
+                }
+                else
+                {
+                    Debug.LogWarning("[Grid] hide_Keyboard reference not assigned!");
+                }
+
+                // Optionally stop receiving keyboard events (still safe)
+                Keyboard.OnKeyPressedEvent -= HandleKeyboardInput;
+                Keyboard.OnBackspaceEvent -= HandleBackspaceInput;
+            }
         }
         else
         {
-            Debug.Log("All rows completed!");
-            DisplayCollectedWords();
+            // --- Row was previously completed but now edited ---
+            if (completedRowIndices.Contains(cell.RowIndex))
+            {
+                string oldWord = completedWords[cell.RowIndex];
+                completedRowIndices.Remove(cell.RowIndex);
+                completedWords[cell.RowIndex] = "";
+                Debug.Log($"[Grid] Row {cell.RowIndex + 1} uncompleted — old word removed: '{oldWord}'");
+            }
+            else
+            {
+                // Move focus to next input cell if available
+                if (activeCellIndex + 1 < row.Count)
+                {
+                    activeCellIndex++;
+                    SetActiveCell(cell.RowIndex, activeCellIndex);
+                }
+            }
         }
     }
 
@@ -453,7 +515,6 @@ public class GridGenerator2D : MonoBehaviour
         activeRowIndex = rowIndex;
         activeCellIndex = colIndex;
     }
-
     #endregion
 
     #region Display Helpers
@@ -466,13 +527,23 @@ public class GridGenerator2D : MonoBehaviour
         }
     }
 
-    private void DisplayCollectedWords()
+    public void DisplayCollectedWords()
     {
-        string allWords = string.Join(", ", completedWords);
-        Debug.Log("Collected words: " + allWords);
+        Debug.Log("====================================");
+        Debug.Log("Final Collected Words:");
 
-        if (currentWordDisplay != null)
-            currentWordDisplay.text = "Words: " + allWords;
+        for (int i = 0; i < completedWords.Count; i++)
+        {
+            string word = completedWords[i];
+
+            // Skip rows that are empty or unfilled
+            if (string.IsNullOrEmpty(word))
+                continue;
+
+            Debug.Log($"{i + 1}. {word}");
+        }
+
+        Debug.Log("====================================");
     }
     #endregion
 
