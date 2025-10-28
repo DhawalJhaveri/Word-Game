@@ -21,7 +21,7 @@ public class Keyboard : MonoBehaviour
     [Header("Visual Settings")]
     [SerializeField] private Sprite backspaceSprite;
     [SerializeField] private Sprite submitSprite;
-    [SerializeField] private Vector2 keySize = new(100, 100);
+    [SerializeField] private Vector2 keySize = new(95, 95);
     [SerializeField] private int spacing = 10;
 
     [Header("Layout Settings")]
@@ -53,11 +53,11 @@ public class Keyboard : MonoBehaviour
         foreach (Transform child in transform)
             Destroy(child.gameObject);
 
-        // Create container for proper padding and safe area handling
+        // Create container with proper padding and safe area handling
         container = new GameObject("KeyboardContainer", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
         container.SetParent(transform, false);
         container.anchorMin = new Vector2(0, 0);
-        container.anchorMax = new Vector2(1, 1);
+        container.anchorMax = new Vector2(1, 0);
         container.pivot = new Vector2(0.5f, 0);
         container.offsetMin = Vector2.zero;
         container.offsetMax = Vector2.zero;
@@ -65,21 +65,20 @@ public class Keyboard : MonoBehaviour
         var vLayout = container.GetComponent<VerticalLayoutGroup>();
         vLayout.padding = new RectOffset(paddingLeft, paddingRight, paddingTop, paddingBottom);
         vLayout.spacing = rowSpacing;
-        vLayout.childAlignment = TextAnchor.MiddleCenter;
+        vLayout.childAlignment = TextAnchor.LowerCenter;
         vLayout.childForceExpandWidth = false;
         vLayout.childForceExpandHeight = false;
 
-        // Build all letter rows
+        // Build letter rows
         for (int rowIndex = 0; rowIndex < keyboardRows.Count; rowIndex++)
         {
             string row = keyboardRows[rowIndex];
-
             GameObject rowGO = new GameObject($"Row_{rowIndex}", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             rowGO.transform.SetParent(container, false);
 
             var hLayout = rowGO.GetComponent<HorizontalLayoutGroup>();
             hLayout.spacing = spacing;
-            hLayout.childAlignment = TextAnchor.MiddleCenter;
+            hLayout.childAlignment = TextAnchor.UpperCenter;
             hLayout.childControlWidth = false;
             hLayout.childControlHeight = false;
             hLayout.childForceExpandWidth = false;
@@ -94,12 +93,13 @@ public class Keyboard : MonoBehaviour
                 keyGO.GetComponent<Button>().onClick.AddListener(() => HandleKeyPress(letter));
             }
 
-            // Add Backspace only to the last row
+            // Add Backspace to last row only
             if (rowIndex == keyboardRows.Count - 1)
             {
                 var backspaceGO = Instantiate(backspacePrefab, rowGO.transform);
                 backspaceGO.name = "Backspace_BTN";
-                backspaceGO.GetComponent<RectTransform>().sizeDelta = new Vector2(keySize.x * 1.5f, keySize.y);
+                //backspaceGO.GetComponent<RectTransform>().sizeDelta = new Vector2(keySize.x * 1.5f, keySize.y);
+
                 if (backspaceSprite != null)
                     backspaceGO.GetComponent<Image>().sprite = backspaceSprite;
 
@@ -107,17 +107,30 @@ public class Keyboard : MonoBehaviour
             }
         }
 
-        // Add Submit Button after all rows
+        // Add Submit button after keyboard rows
         CreateSubmitButton();
     }
 
     private void CreateSubmitButton()
     {
-        var submitGO = Instantiate(submitPrefab, container);
+        // Create a separate row for the Submit button
+        var submitRow = new GameObject("SubmitRow", typeof(RectTransform), typeof(HorizontalLayoutGroup)).GetComponent<RectTransform>();
+        submitRow.SetParent(container, false);
+
+        var hLayout = submitRow.GetComponent<HorizontalLayoutGroup>();
+        hLayout.spacing = 0;
+        hLayout.childAlignment = TextAnchor.UpperCenter;
+        hLayout.childControlWidth = false;
+        hLayout.childControlHeight = false;
+        hLayout.childForceExpandWidth = false;
+        hLayout.childForceExpandHeight = false;
+
+        // Instantiate the Submit button
+        var submitGO = Instantiate(submitPrefab, submitRow);
         submitGO.name = "Submit_BTN";
 
-        var rt = submitGO.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(keySize.x * 2f, keySize.y * 1.1f);
+        //var rt = submitGO.GetComponent<RectTransform>();
+        //rt.sizeDelta = new Vector2(keySize.x * 2.5f, keySize.y * 1.2f);
 
         if (submitSprite != null)
             submitGO.GetComponent<Image>().sprite = submitSprite;
@@ -125,7 +138,7 @@ public class Keyboard : MonoBehaviour
         var btn = submitGO.GetComponent<Button>();
         btn.onClick.AddListener(HandleSubmitPress);
 
-        Debug.Log("[Keyboard] Submit button instantiated below keyboard with safe padding.");
+        Debug.Log("[Keyboard] Submit button instantiated below keyboard with safe padding and center alignment.");
     }
 
     #region Input Handlers

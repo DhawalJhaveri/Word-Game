@@ -7,6 +7,7 @@ using static UnityEngine.Rendering.DebugUI.Table;
 
 public class GridGenerator2D : MonoBehaviour
 {
+    #region Variables
     [Header("UI References")]
     [SerializeField] private GameObject cellPrefab;        // Character cells
     [SerializeField] private GameObject inputCellsPrefab;  // Input cells
@@ -40,7 +41,9 @@ public class GridGenerator2D : MonoBehaviour
     private List<string> fixedCharLetters = new List<string>(); // fixed letter for each row
     private List<string> completedWords = new(); // Store completed words
     private HashSet<int> completedRowIndices = new(); // <— NEW
+    #endregion
 
+    #region UNITY CALLBACKS
     private void Awake()
     {
         LoadOxfordWords();
@@ -57,17 +60,13 @@ public class GridGenerator2D : MonoBehaviour
         Keyboard.OnSubmitEvent -= HandleSubmitPressed; // remove this
     }
 
-    private void HandleSubmitPressed()
-    {
-        Debug.Log("[Grid] Submit pressed -> loading next word");
-        GenerateProceduralGrid();
-    }
-
     private void Start()
     {
         hide_Keyboard.SetActive(false);
         GenerateProceduralGrid();
+        GameTimer.Instance.StartTimer();
     }
+    #endregion
 
     #region JSON Loading
     [Serializable]
@@ -332,6 +331,12 @@ public class GridGenerator2D : MonoBehaviour
             Debug.Log($"[Grid] Row {activeRowIndex + 1} edited -> old word removed");
         }
     }
+
+    private void HandleSubmitPressed()
+    {
+        Debug.Log("[Grid] Submit pressed -> loading next word");
+        GenerateProceduralGrid();
+    }
     #endregion
 
     #region Cell Activation & Row Completion
@@ -406,6 +411,11 @@ public class GridGenerator2D : MonoBehaviour
             {
                 Debug.Log("[Grid] All rows completed. Displaying collected words...");
                 DisplayCollectedWords();
+
+                GameTimer.Instance.StopTimer();
+                GameTimer.Instance.SaveCompletionTime();
+
+                WordValidator.Instance.ValidateWords(completedWords);
 
                 // Instead of dimming or disabling manually, show the hide_Keyboard UI
                 if (hide_Keyboard != null)
